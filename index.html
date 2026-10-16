@@ -357,6 +357,14 @@ function viewSettings(){
       <button class="btn ghost wide" data-act="pushall">Gửi lại toàn bộ sổ lên Sheets</button>
       <button class="btn ghost wide" data-act="pull">Khôi phục sổ từ Sheets</button>` : ''}
   </div>
+  <h2>Thông tin trên bảng kê</h2><div class="card stack">
+    <p class="hint" style="margin:0">In ở đầu bảng kê gửi khách. Ô nào để trống thì không in.</p>
+    <label><span class="lab">Tên cửa hàng</span><input class="inp" id="shopname" value="${esc((D.settings.shop||{}).name||'')}" placeholder="VD: Cá tươi Cô Ba"></label>
+    <label><span class="lab">Số điện thoại</span><input class="inp" id="shopphone" type="tel" value="${esc((D.settings.shop||{}).phone||'')}" placeholder="VD: 0909 123 456"></label>
+    <label><span class="lab">Địa chỉ</span><input class="inp" id="shopaddr" value="${esc((D.settings.shop||{}).addr||'')}" placeholder="VD: Sạp 12, chợ Bình Điền"></label>
+    <label><span class="lab">Chuyển khoản (ngân hàng · số TK · chủ TK)</span><input class="inp" id="shopbank" value="${esc((D.settings.shop||{}).bank||'')}" placeholder="VD: Vietcombank · 0123456789 · NGUYEN VAN A"></label>
+    <button class="btn ok wide" data-act="saveshop">Lưu thông tin</button>
+  </div>
   <h2>File sao lưu</h2><div class="card stack">
     <p class="hint" style="margin:0">Lưu cả sổ, bảng giá và khách vào một file. Gửi vào “Cloud của tôi” trên Zalo hoặc chọn “Lưu vào Tệp”.</p>
     <button class="btn ghost wide" data-act="backupfile">Gửi file sao lưu</button>
@@ -474,28 +482,96 @@ function loadScript(src){
 const H2C = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 const JSPDF = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
 
+// Số tiền bằng chữ (VD 6275000 → "Sáu triệu hai trăm bảy mươi lăm nghìn đồng")
+function docSo(n){
+  n = Math.round(n);
+  if (!n) return 'Không đồng';
+  const d = ['không','một','hai','ba','bốn','năm','sáu','bảy','tám','chín'];
+  const read3 = (x, full) => {
+    const tr = Math.floor(x/100), ch = Math.floor(x%100/10), dv = x%10, s = [];
+    if (full || tr) s.push(d[tr] + ' trăm');
+    if (ch === 0) { if (dv && (full || tr)) s.push('lẻ'); }
+    else s.push(ch === 1 ? 'mười' : d[ch] + ' mươi');
+    if (dv) s.push(dv === 1 && ch > 1 ? 'mốt' : dv === 5 && ch > 0 ? 'lăm' : d[dv]);
+    return s.join(' ');
+  };
+  const units = ['', ' nghìn', ' triệu', ' tỷ'], g = [];
+  while (n > 0) { g.push(n % 1000); n = Math.floor(n/1000); }
+  const parts = [];
+  for (let i = g.length-1; i >= 0; i--) if (g[i]) parts.push(read3(g[i], i < g.length-1) + units[i]);
+  const s = parts.join(' ');
+  return s[0].toUpperCase() + s.slice(1) + ' đồng';
+}
+
+// Bảng kê bán hàng gửi khách. perPage=0 → một trang dài (ảnh); có số → các trang A4 (PDF)
 function paperPages(perPage){
   const rows = sortOrders(byCust(ordersOfMonth(S.bookMonth)));
-  const total = rows.reduce((s,o)=>s+o.qty*o.price,0);
+  const total = rows.reduce((s,o)=>s+Math.round(o.qty*o.price),0);
+  const shop = D.settings.shop || {};
+  const [y, m] = S.bookMonth.split('-').map(Number);
+  const monthEnd = new Date(y, m, 0), today = new Date();
+  const to = monthEnd < today ? monthEnd : today;
+  const fmt = dt => pad2(dt.getDate())+'/'+pad2(dt.getMonth()+1)+'/'+dt.getFullYear();
+
+  // Chia trang: trang đầu có phần đầu, trang cuối cần chỗ cho tổng tiền + chữ ký
   const chunks = [];
   if (!perPage) chunks.push(rows);
-  else { let i = 0, first = true; while (i < rows.length) { const n = first ? perPage - 4 : perPage; chunks.push(rows.slice(i, i+n)); i += n; first = false; } }
-  const td = 'padding:5px 8px;border:1px solid #c9ccc5;';
+  else {
+    const FIRST = 20, NEXT = 28, FOOT = 9;
+    let i = 0, first = true;
+    while (i < rows.length) { const n = first ? FIRST : NEXT; chunks.push(rows.slice(i, i+n)); i += n; first = false; }
+    if (!chunks.length) chunks.push([]);
+    const lastCap = chunks.length === 1 ? FIRST : NEXT;
+    if (chunks[chunks.length-1].length > lastCap - FOOT) chunks.push([]);
+  }
+
+  const FONT = "'Helvetica Neue',Helvetica,Arial,sans-serif";
+  const td = 'padding:7px 8px;border:1px solid #b9bdb4;vertical-align:top;';
+  const th = td + 'background:#eef0ea;font-weight:700;font-size:13px;';
+  const r = 'text-align:right;white-space:nowrap;', c = 'text-align:center;';
+  let stt = 0;
+
   return chunks.map((list, pi) => {
-    let last = pi > 0 ? (chunks[pi-1].slice(-1)[0] || {}).date : '';
-    const body = list.map(o => { const showDate = o.date !== last; last = o.date;
-      return `<tr><td style="${td}">${showDate ? dmy(o.date)+'/'+o.date.slice(0,4) : ''}</td><td style="${td}">${esc(o.item)}</td>
-        <td style="${td}text-align:right">${kg(o.qty)}</td><td style="${td}text-align:right">${money(o.price)}</td><td style="${td}text-align:right">${money(o.qty*o.price)}</td></tr>`; }).join('');
-    const isLast = pi === chunks.length-1;
-    return `<div style="width:794px;${perPage ? 'height:1123px;' : ''}padding:44px 48px;box-sizing:border-box;background:#fff;color:#111;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;font-size:15px;line-height:1.35;position:relative;font-variant-numeric:tabular-nums">
-      ${pi === 0 ? `<div style="text-align:center;font-size:28px;font-weight:800;letter-spacing:.03em">${esc(curCustomer().toUpperCase())}</div>
-        <div style="text-align:center;font-size:17px;margin:4px 0 18px;color:#444">${monthLabel(S.bookMonth)}</div>` : ''}
+    const isFirst = pi === 0, isLast = pi === chunks.length-1;
+    const body = list.map(o => { stt++;
+      return `<tr><td style="${td}${c}">${stt}</td><td style="${td}white-space:nowrap">${dmy(o.date)}/${o.date.slice(0,4)}</td>
+        <td style="${td}">${esc(o.item)}</td><td style="${td}${c}">kg</td><td style="${td}${r}">${kg(o.qty)}</td>
+        <td style="${td}${r}">${money(o.price)}</td><td style="${td}${r}">${money(Math.round(o.qty*o.price))}</td></tr>`; }).join('');
+
+    const head = !isFirst ? '' : `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding-bottom:14px;border-bottom:2px solid #9E1F2A">
+        <div>
+          ${shop.name ? `<div style="font-size:21px;font-weight:800;text-transform:uppercase;color:#9E1F2A">${esc(shop.name)}</div>` : ''}
+          ${shop.addr ? `<div style="margin-top:3px">Địa chỉ: ${esc(shop.addr)}</div>` : ''}
+          ${shop.phone ? `<div style="margin-top:3px">Điện thoại: ${esc(shop.phone)}</div>` : ''}
+        </div>
+        <div style="text-align:right;white-space:nowrap;color:#444">Ngày lập: ${fmt(today)}</div>
+      </div>
+      <div style="text-align:center;margin:24px 0 6px;font-size:26px;font-weight:800;letter-spacing:1px">BẢNG KÊ BÁN HÀNG</div>
+      <div style="text-align:center;color:#444;margin-bottom:20px">Từ ngày ${fmt(new Date(y, m-1, 1))} đến ngày ${fmt(to)}</div>
+      <div style="margin-bottom:12px;font-size:16px">Khách hàng: <b>${esc(curCustomer())}</b></div>`;
+
+    const table = (!list.length && !isFirst) ? '' : `
       <table style="width:100%;border-collapse:collapse">
-        <tr style="background:#f0f1ed;font-weight:700"><td style="${td}">Ngày</td><td style="${td}">Món</td><td style="${td}text-align:right">Số lượng (kg)</td><td style="${td}text-align:right">Đơn giá</td><td style="${td}text-align:right">Thành tiền</td></tr>
+        <tr><td style="${th}${c}width:44px">STT</td><td style="${th}width:104px">Ngày</td><td style="${th}">Tên hàng</td><td style="${th}${c}width:46px">ĐVT</td>
+          <td style="${th}${r}width:90px">Số lượng</td><td style="${th}${r}width:100px">Đơn giá</td><td style="${th}${r}width:130px">Thành tiền</td></tr>
         ${body}
-        ${isLast ? `<tr style="font-weight:800;font-size:17px"><td colspan="4" style="${td}text-align:center">TỔNG CỘNG</td><td style="${td}text-align:right">${money(total)}</td></tr>` : ''}
-      </table>
-      ${perPage && chunks.length > 1 ? `<div style="position:absolute;bottom:28px;left:0;right:0;text-align:center;color:#666;font-size:13px">Trang ${pi+1}/${chunks.length}</div>` : ''}
+        ${isLast ? `<tr><td colspan="6" style="${td}text-align:right;font-weight:800;font-size:16px">TỔNG CỘNG</td><td style="${td}${r}font-weight:800;font-size:16px">${money(total)}</td></tr>` : ''}
+      </table>`;
+
+    const foot = !isLast ? '' : `
+      ${!list.length && !isFirst ? `<div style="text-align:right;font-weight:800;font-size:16px;border-top:2px solid #111;padding-top:8px">TỔNG CỘNG: ${money(total)} đ</div>` : ''}
+      <div style="margin-top:12px">Số tiền bằng chữ: <i>${docSo(total)}.</i></div>
+      ${shop.bank ? `<div style="margin-top:14px;padding:10px 12px;border:1px dashed #9E1F2A;border-radius:6px">Thông tin chuyển khoản: <b>${esc(shop.bank)}</b></div>` : ''}
+      <div style="display:flex;justify-content:space-around;margin-top:34px;text-align:center">
+        <div><b>Người mua hàng</b><div style="color:#666;font-size:13px;margin-top:2px">(Ký, ghi rõ họ tên)</div></div>
+        <div><b>Người lập bảng</b><div style="color:#666;font-size:13px;margin-top:2px">(Ký, ghi rõ họ tên)</div></div>
+      </div>
+      <div style="height:${perPage ? 0 : 90}px"></div>`;
+
+    return `<div style="width:794px;${perPage ? 'height:1123px;' : ''}padding:44px 48px;box-sizing:border-box;background:#fff;color:#111;font-family:${FONT};font-size:14px;line-height:1.4;position:relative">
+      ${head}${table}${foot}
+      ${perPage && chunks.length > 1 ? `<div style="position:absolute;bottom:26px;left:0;right:0;text-align:center;color:#777;font-size:12px">Trang ${pi+1}/${chunks.length}</div>` : ''}
     </div>`;
   });
 }
@@ -508,15 +584,15 @@ async function renderPaper(html){
 }
 function busy(msg){ layer.innerHTML = `<div class="scrim"><div class="sheet"><h3>${esc(msg)}</h3><p class="hint">Chờ vài giây…</p></div></div>`; }
 async function exportFile(kind){
-  const name = 'so-' + slug(curCustomer()) + '-' + S.bookMonth;
-  busy(kind === 'pdf' ? 'Đang tạo file PDF' : 'Đang tạo ảnh');
+  const name = 'bang-ke-' + slug(curCustomer()) + '-' + S.bookMonth;
+  busy(kind === 'pdf' ? 'Đang tạo bảng kê PDF' : 'Đang tạo ảnh bảng kê');
   try {
     await loadScript(H2C);
     let file;
     if (kind === 'pdf') {
       await loadScript(JSPDF);
       const pdf = new window.jspdf.jsPDF({unit:'mm', format:'a4'});
-      const pages = paperPages(30);
+      const pages = paperPages(1);
       for (let i = 0; i < pages.length; i++) {
         const c = await renderPaper(pages[i]);
         if (i) pdf.addPage();
@@ -535,8 +611,8 @@ function zaloSheet(){
   layer.innerHTML = `<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-label="Gửi qua Zalo">
     <h3>Gửi sổ ${esc(monthLabel(S.bookMonth).toLowerCase())}</h3>
     <div class="stack">
-      <button class="btn pri wide" data-act="mkpdf" style="min-height:64px;font-size:20px">Gửi file PDF</button>
-      <button class="btn ghost wide" data-act="mkimg" style="min-height:64px;font-size:20px">Gửi ảnh (xem ngay trong Zalo)</button>
+      <button class="btn pri wide" data-act="mkpdf" style="min-height:64px;font-size:20px">Gửi bảng kê PDF</button>
+      <button class="btn ghost wide" data-act="mkimg" style="min-height:64px;font-size:20px">Gửi ảnh bảng kê (xem ngay trong Zalo)</button>
       <button class="btn ghost wide" data-act="close">Đóng</button>
     </div></div></div>`;
 }
@@ -615,6 +691,11 @@ document.addEventListener('click', async e => {
   if (act === 'csv') {
     const f = new File([monthCsv()], 'so-' + slug(curCustomer()) + '-' + S.bookMonth + '.csv', {type:'text/csv'});
     await shareFile(f, monthLabel(S.bookMonth)); return;
+  }
+  if (act === 'saveshop') {
+    const v = id => $(id).value.trim();
+    D.settings.shop = {name:v('#shopname'), phone:v('#shopphone'), addr:v('#shopaddr'), bank:v('#shopbank')};
+    persist(); toast('Đã lưu thông tin cửa hàng.'); return;
   }
   if (act === 'synctest') {
     const url = $('#syncurl').value.trim(), k = $('#synckey').value.trim();
