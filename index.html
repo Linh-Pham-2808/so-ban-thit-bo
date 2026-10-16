@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ Bán Thịt Bò</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sổ Bò">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#9E1F2A">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#F3F4F1; --surface:#FFFFFF; --sunk:#E9EBE6; --ink:#1A1C19; --muted:#5C6259; --line:#D9DDD4;
+  --accent:#9E1F2A; --accent-soft:#F6E3E4; --accent-ink:#FFFFFF;
+  --ok:#1D7348; --ok-soft:#DDF0E5; --warn:#8A5A00; --warn-soft:#FBEFD5; --danger:#B42318;
+  --shadow:0 1px 2px rgba(20,24,18,.06),0 4px 14px rgba(20,24,18,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    color-scheme:dark;
+    --bg:#111311; --surface:#1B1E1B; --sunk:#252925; --ink:#EDEFEA; --muted:#A2A99F; --line:#2F342F;
+    --accent:#E2575F; --accent-soft:#3A1D20; --accent-ink:#1A0B0C;
+    --ok:#4FC48A; --ok-soft:#173326; --warn:#F2B84B; --warn-soft:#33280F; --danger:#FF7A6E;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);margin:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color:var(--ink); font-size:18px; line-height:1.4;
+  font-variant-numeric:tabular-nums; -webkit-tap-highlight-color:transparent; -webkit-text-size-adjust:100%;
+  padding-top:env(safe-area-inset-top,0px);
+}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:12px calc(120px + env(safe-area-inset-bottom,0px))}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:6px 10px}
+.shop{font-weight:800;font-size:24px;letter-spacing:.02em;text-transform:uppercase}
+.sync{font-size:13px;font-weight:700;border-radius:999px;padding:4px 10px;white-space:nowrap}
+.sync.ok{background:var(--ok-soft);color:var(--ok)}
+.sync.wait{background:var(--warn-soft);color:var(--warn)}
+.sync.off{background:var(--sunk);color:var(--muted)}
+.cust{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.chip{padding:10px 16px;border-radius:999px;background:var(--surface);border:2px solid var(--line);font-weight:600;font-size:17px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.datebar{display:grid;grid-template-columns:64px 1fr 64px;gap:8px;align-items:stretch;margin-bottom:16px}
+.arrow{background:var(--surface);border:2px solid var(--line);border-radius:16px;font-size:30px;font-weight:700;min-height:64px}
+.datebox{background:var(--surface);border:2px solid var(--line);border-radius:16px;text-align:center;padding:6px 4px;position:relative;display:flex;flex-direction:column;justify-content:center}
+.datebox .d1{font-size:14px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.datebox .d2{font-size:22px;font-weight:700}
+.datebox input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.today-pill{display:inline-block;background:var(--ok-soft);color:var(--ok);border-radius:999px;padding:0 8px;font-size:13px;margin-left:6px;vertical-align:2px}
+
+h2{font-size:15px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 10px;font-weight:700}
+
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.prod{background:var(--surface);border:2px solid var(--line);border-radius:18px;padding:16px 14px;text-align:left;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:var(--shadow)}
+.prod:active{transform:scale(.98);border-color:var(--accent)}
+.prod b{font-size:23px;font-weight:700;line-height:1.15}
+.prod span{color:var(--muted);font-size:15px}
+
+.list{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.row{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:14px;border-top:1px solid var(--line);align-items:center;width:100%;text-align:left}
+.row:first-child{border-top:0}
+.row .name{font-weight:700;font-size:19px}
+.row .calc{color:var(--muted);font-size:15px;grid-column:1}
+.row .amt{font-weight:700;font-size:19px;grid-row:1/3;grid-column:2;text-align:right}
+.row.confirm{background:var(--accent-soft);grid-template-columns:1fr}
+.row.confirm .btns{display:flex;gap:8px;flex-wrap:wrap}
+.total{display:flex;justify-content:space-between;align-items:baseline;padding:16px 14px;background:var(--sunk);font-weight:800;font-size:20px;gap:12px}
+.total small{font-size:14px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.empty{padding:22px 14px;color:var(--muted);text-align:center;font-size:17px}
+.hint{color:var(--muted);font-size:15px;margin:8px 2px 0}
+
+.btn{border-radius:14px;padding:12px 18px;font-weight:700;font-size:18px;min-height:52px}
+.btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn.ok{background:var(--ok);color:var(--surface)}
+.btn.ghost{background:var(--surface);border:2px solid var(--line)}
+.btn.danger{background:var(--danger);color:var(--surface)}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.5}
+
+.big{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+.big .lbl{font-size:14px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.big .val{font-size:34px;font-weight:800;line-height:1.15;margin-top:2px;overflow-wrap:anywhere}
+.big .sub{color:var(--muted);font-size:15px;margin-top:4px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+.day{margin-top:14px}
+.dayhead{display:flex;justify-content:space-between;align-items:baseline;padding:0 4px 6px;font-weight:700;gap:8px}
+.dayhead span:last-child{color:var(--muted);font-size:16px}
+.sumtable{width:100%;border-collapse:collapse;font-size:16px}
+.sumtable td{padding:10px 14px;border-top:1px solid var(--line)}
+.sumtable tr:first-child td{border-top:0}
+.sumtable td.r{text-align:right;white-space:nowrap}
+
+.set-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--line)}
+.set-row:first-child{border-top:0}
+.set-row .nm{font-weight:700;font-size:19px;overflow-wrap:anywhere}
+.set-row .r{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.pricebtn{background:var(--sunk);border-radius:12px;padding:10px 12px;font-weight:700;min-height:48px}
+.x{width:48px;height:48px;border-radius:12px;background:var(--sunk);font-size:20px;color:var(--muted)}
+.addform{display:flex;gap:8px;margin-top:10px}
+.inp{flex:1;min-width:0;width:100%;font:inherit;font-size:17px;padding:12px 14px;border-radius:14px;border:2px solid var(--line);background:var(--surface);color:var(--ink)}
+.stack{display:grid;gap:10px}
+.lab{font-size:14px;font-weight:700;color:var(--muted);margin-bottom:4px;display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px}
+
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);
+  padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(3,1fr);gap:8px;z-index:5}
+.tab{border-radius:14px;padding:10px 4px;font-weight:700;font-size:17px;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:60px;color:var(--muted)}
+.tab svg{width:26px;height:26px}
+.tab[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
+
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:560px;border-radius:24px 24px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));max-height:100%;overflow:auto}
+.sheet h3{margin:0 0 10px;font-size:26px;font-weight:800;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field{background:var(--surface);border:3px solid var(--line);border-radius:16px;padding:8px 12px;text-align:left}
+.field[aria-pressed="true"]{border-color:var(--accent)}
+.field .fl{font-size:13px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.field .fv{font-size:28px;font-weight:800;line-height:1.2;overflow-wrap:anywhere}
+.field.solo{grid-column:1/-1}
+.result{display:flex;justify-content:space-between;align-items:baseline;padding:12px 4px;font-size:18px;gap:8px}
+.result b{font-size:26px}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.key{background:var(--surface);border:1px solid var(--line);border-radius:14px;font-size:28px;font-weight:700;min-height:62px;box-shadow:var(--shadow)}
+.key:active{background:var(--sunk)}
+.key.fn{background:var(--sunk);font-size:22px}
+.sheet-btns{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+.sheet-btns .btn{min-height:62px;font-size:21px}
+
+.toast{position:fixed;left:16px;right:16px;bottom:calc(96px + env(safe-area-inset-bottom,0px));max-width:528px;margin:0 auto;background:var(--ok);color:var(--surface);padding:14px 16px;border-radius:14px;font-weight:700;z-index:20;box-shadow:var(--shadow)}
+.toast.err{background:var(--danger)}
+.banner{background:var(--warn-soft);color:var(--ink);border-radius:14px;padding:12px 14px;font-size:16px;margin-bottom:12px;display:block;width:100%;text-align:left}
+@media (prefers-reduced-motion:no-preference){ .sheet{animation:up .18s ease-out} @keyframes up{from{transform:translateY(30px);opacity:.6}} }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<nav class="tabs" role="tablist">
+  <button class="tab" role="tab" data-tab="nhap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nhập hàng</button>
+  <button class="tab" role="tab" data-tab="so"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11l3 3v13H5z"/><path d="M8 10h8M8 14h8M8 18h5"/></svg>Sổ tháng</button>
+  <button class="tab" role="tab" data-tab="gia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Cài đặt</button>
+</nav>
+<div id="layer"></div>
+<input type="file" id="restorefile" accept=".json,application/json" hidden>
+
+<script>
+const SEED = null;
+(() => {
+const $ = (s, r=document) => r.querySelector(s);
+const app = $('#app'), layer = $('#layer');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = n => Math.round(n).toLocaleString('vi-VN');
+const kg = n => (Math.round(n*100)/100).toLocaleString('vi-VN', {maximumFractionDigits:2});
+const pad2 = n => String(n).padStart(2,'0');
+const iso = d => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+const fromIso = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const WD = ['Chủ nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+const dmy = s => { const d = fromIso(s); return pad2(d.getDate())+'/'+pad2(d.getMonth()+1); };
+const addDays = (s, n) => { const d = fromIso(s); d.setDate(d.getDate()+n); return iso(d); };
+const monthLabel = m => { const [y,mm] = m.split('-'); return 'Tháng '+Number(mm)+'/'+y; };
+const addMonth = (m, n) => { const [y,mm] = m.split('-').map(Number); const d = new Date(y, mm-1+n, 1); return d.getFullYear()+'-'+pad2(d.getMonth()+1); };
+const newId = () => 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+const WEEK = 7*24*3600*1000;
+
+/* ---------- local storage (the only copy on this phone) ---------- */
+const KEY = 'so-ban-thit-bo';
+let D;
+function blank(){ return {orders:[], settings:{products:[], customers:[]}, sync:{url:'', key:'', lastOk:0}, queue:{up:{}, del:[]}, lastFile:0}; }
+function load(){
+  try { const raw = localStorage.getItem(KEY); if (raw) { D = Object.assign(blank(), JSON.parse(raw)); return; } } catch(e) {}
+  D = blank();
+  if (SEED) { D.orders = SEED.orders; D.settings = SEED.settings; }
+  persist();
+}
+function persist(){
+  try { localStorage.setItem(KEY, JSON.stringify(D)); return true; }
+  catch(e) { toast('Không lưu được vào máy (bộ nhớ đầy?). Hãy sao lưu ngay.', true); return false; }
+}
+load();
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e) {}
+
+const S = { tab:'nhap', date: iso(new Date()), bookMonth: iso(new Date()).slice(0,7), customer:null, confirmId:null, syncing:false, syncErr:'' };
+try { S.tab = sessionStorage.getItem('tab') || 'nhap'; S.customer = localStorage.getItem(KEY+'-cust'); } catch(e) {}
+if (D.orders.length && !D.orders.some(o => o.date.slice(0,7) === S.bookMonth)) {
+  // open the book on the latest month that has data
+  S.bookMonth = D.orders.map(o => o.date.slice(0,7)).sort().pop();
+}
+
+const products = () => D.settings.products || [];
+const customers = () => (D.settings.customers && D.settings.customers.length) ? D.settings.customers : ['Khách lẻ'];
+const curCustomer = () => { const cs = customers(); return cs.includes(S.customer) ? S.customer : cs[0]; };
+const byCust = list => { const c = curCustomer(); return list.filter(o => (o.customer || customers()[0]) === c); };
+const sortOrders = list => list.slice().sort((a,b) => a.date.localeCompare(b.date) || (a.at||0)-(b.at||0));
+const ordersOfMonth = m => D.orders.filter(o => o.date.slice(0,7) === m);
+
+/* ---------- Google Sheets backup ---------- */
+const pending = () => Object.keys(D.queue.up).length + D.queue.del.length;
+function queueUp(o){ D.queue.up[o.id] = o; }
+function queueDel(id){ delete D.queue.up[id]; if (!D.queue.del.includes(id)) D.queue.del.push(id); }
+async function flush(){
+  if (!D.sync.url || S.syncing || !pending()) return;
+  if (!navigator.onLine) return;
+  S.syncing = true; S.syncErr = ''; render();
+  try {
+    const del = D.queue.del.slice();
+    const ups = Object.values(D.queue.up);
+    for (let i = 0; i === 0 || i < ups.length; i += 200) {
+      const batch = ups.slice(i, i+200);
+      const body = {key:D.sync.key, xoa: i === 0 ? del : [], dong: batch.map(({id,date,customer,item,qty,price}) => ({id,date,customer,item,qty,price}))};
+      const r = await fetch(D.sync.url, {method:'POST', body: JSON.stringify(body)});
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.loi === 'sai mã' ? 'Sai mã bí mật' : (j.loi || 'lỗi'));
+      if (i === 0) D.queue.del = D.queue.del.filter(id => !del.includes(id));
+      batch.forEach(o => { if (D.queue.up[o.id] === o) delete D.queue.up[o.id]; });
+      if (!ups.length) break;
+    }
+    D.sync.lastOk = Date.now(); persist();
+  } catch(e) {
+    S.syncErr = e.message && e.message !== 'Failed to fetch' && e.message !== 'Load failed' ? e.message : 'Chưa gửi được (mạng?)';
+  }
+  S.syncing = false; render();
+}
+window.addEventListener('online', flush);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flush(); });
+setInterval(flush, 60000);
+
+function syncChip(){
+  if (!D.sync.url) return `<button class="sync off" data-act="gotoset">Chưa cài sao lưu</button>`;
+  if (S.syncing) return `<span class="sync wait">Đang sao lưu…</span>`;
+  const n = pending();
+  if (n) return `<button class="sync wait" data-act="flush">Chờ sao lưu ${n} dòng</button>`;
+  return `<span class="sync ok">Đã sao lưu ✓</span>`;
+}
+
+/* ---------- render ---------- */
+function render(){
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab===S.tab)));
+  let h = '';
+  if (!D.sync.url && Date.now() - (D.lastFile||0) > WEEK && D.orders.length)
+    h += `<button class="banner" data-act="gotoset"><b>Sổ chỉ nằm trong máy này.</b> Bấm vào đây để cài sao lưu, phòng khi mất hoặc hỏng máy.</button>`;
+  if (S.tab === 'nhap') h += viewEntry();
+  else if (S.tab === 'so') h += viewBook();
+  else h += viewSettings();
+  app.innerHTML = h;
+}
+function header(title){
+  return `<div class="top"><div class="shop">${esc(title)}</div>${syncChip()}</div>`;
+}
+function custChips(){
+  const cs = customers();
+  if (cs.length < 2) return '';
+  return `<div class="cust">${cs.map(c => `<button class="chip" data-act="cust" data-v="${esc(c)}" aria-pressed="${c===curCustomer()}">${esc(c)}</button>`).join('')}</div>`;
+}
+
+function viewEntry(){
+  const isToday = S.date === iso(new Date());
+  const d = fromIso(S.date);
+  const rows = sortOrders(byCust(D.orders.filter(o => o.date === S.date)));
+  const total = rows.reduce((s,o) => s + o.qty*o.price, 0);
+  const prods = products();
+  let h = header(curCustomer()) + custChips() + `
+  <div class="datebar">
+    <button class="arrow" data-act="day" data-v="-1" aria-label="Ngày trước">‹</button>
+    <label class="datebox"><span class="d1">${WD[d.getDay()]}${isToday?'<span class="today-pill">Hôm nay</span>':''}</span>
+      <span class="d2">${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}</span>
+      <input type="date" id="pickdate" value="${S.date}" aria-label="Chọn ngày"></label>
+    <button class="arrow" data-act="day" data-v="1" aria-label="Ngày sau">›</button>
+  </div>
+  <h2>Bấm vào món để nhập</h2>`;
+  if (!prods.length) h += `<div class="list"><div class="empty">Chưa có món nào. Vào <b>Cài đặt</b> để thêm món.</div></div>`;
+  else h += `<div class="grid">${prods.map((p,i) => `<button class="prod" data-act="pick" data-i="${i}"><b>${esc(p.name)}</b><span>${money(p.price)} đ/kg</span></button>`).join('')}</div>`;
+
+  h += `<h2>Đã nhập ngày ${dmy(S.date)}</h2><div class="list">`;
+  if (!rows.length) h += `<div class="empty">Chưa có món nào trong ngày này.</div>`;
+  rows.forEach(o => {
+    if (S.confirmId === o.id) {
+      h += `<div class="row confirm"><div class="name">Xóa “${esc(o.item)} ${kg(o.qty)} kg”?</div>
+        <div class="btns"><button class="btn danger" data-act="del" data-id="${o.id}">Xóa</button><button class="btn ghost" data-act="nodel">Không xóa</button></div></div>`;
+    } else {
+      h += `<button class="row" data-act="edit" data-id="${o.id}"><span class="name">${esc(o.item)}</span>
+        <span class="amt">${money(o.qty*o.price)}</span>
+        <span class="calc">${kg(o.qty)} kg × ${money(o.price)}</span></button>`;
+    }
+  });
+  if (rows.length) h += `<div class="total"><small>Cộng ngày</small><span>${money(total)} đ</span></div>`;
+  h += `</div>${rows.length ? '<p class="hint">Bấm vào một dòng để sửa hoặc xóa.</p>' : ''}`;
+  return h;
+}
+
+function viewBook(){
+  const m = S.bookMonth;
+  const rows = sortOrders(byCust(ordersOfMonth(m)));
+  const total = rows.reduce((s,o) => s + o.qty*o.price, 0);
+  let h = header(curCustomer()) + custChips() + `
+  <div class="datebar">
+    <button class="arrow" data-act="month" data-v="-1" aria-label="Tháng trước">‹</button>
+    <div class="datebox"><span class="d1">Sổ</span><span class="d2">${monthLabel(m)}</span></div>
+    <button class="arrow" data-act="month" data-v="1" aria-label="Tháng sau">›</button>
+  </div>
+  <div class="big"><div class="lbl">Tổng cộng</div><div class="val">${money(total)} đ</div>
+    <div class="sub">${rows.length} dòng · ${new Set(rows.map(o=>o.date)).size} ngày</div></div>`;
+  if (!rows.length) return h + `<div class="list"><div class="empty">Tháng này chưa có đơn.</div></div>`;
+  h += `<button class="btn pri wide" data-act="zalo" style="min-height:62px;font-size:20px;margin-bottom:10px">Gửi sổ qua Zalo</button>
+    <div class="actions"><button class="btn ghost" data-act="copy">Sao chép chữ</button><button class="btn ghost" data-act="csv">Gửi file Excel</button></div>`;
+
+  const items = {};
+  rows.forEach(o => { const k = o.item; items[k] = items[k] || {q:0,a:0}; items[k].q += o.qty; items[k].a += o.qty*o.price; });
+  h += `<h2>Theo món</h2><div class="list"><table class="sumtable">${Object.entries(items).sort((a,b)=>b[1].a-a[1].a).map(([k,v]) =>
+    `<tr><td><b>${esc(k)}</b></td><td class="r">${kg(v.q)} kg</td><td class="r"><b>${money(v.a)}</b></td></tr>`).join('')}</table></div>`;
+
+  h += `<h2>Từng ngày</h2>`;
+  const days = {};
+  rows.forEach(o => (days[o.date] = days[o.date] || []).push(o));
+  Object.keys(days).sort().forEach(dt => {
+    const list = days[dt], sum = list.reduce((s,o)=>s+o.qty*o.price,0);
+    h += `<div class="day"><div class="dayhead"><span>${WD[fromIso(dt).getDay()]} ${dmy(dt)}</span><span>${money(sum)}</span></div><div class="list">`;
+    list.forEach(o => h += `<div class="row"><span class="name">${esc(o.item)}</span><span class="amt">${money(o.qty*o.price)}</span><span class="calc">${kg(o.qty)} kg × ${money(o.price)}</span></div>`);
+    h += `</div></div>`;
+  });
+  return h;
+}
+
+function viewSettings(){
+  const prods = products(), cs = D.settings.customers || [];
+  let h = header('Cài đặt') + `<h2>Bảng giá</h2>
+  <p class="hint" style="margin:-4px 2px 10px">Bấm vào giá để đổi. Giá mới chỉ áp dụng cho các lần nhập sau.</p><div class="list">`;
+  if (!prods.length) h += `<div class="empty">Chưa có món nào.</div>`;
+  prods.forEach((p,i) => {
+    if (S.confirmId === 'p'+i) h += `<div class="row confirm"><div class="name">Bỏ món “${esc(p.name)}” khỏi danh sách?</div><div class="btns"><button class="btn danger" data-act="delprod" data-i="${i}">Bỏ món</button><button class="btn ghost" data-act="nodel">Không</button></div></div>`;
+    else h += `<div class="set-row"><span class="nm">${esc(p.name)}</span><span class="r"><button class="pricebtn" data-act="price" data-i="${i}">${money(p.price)} đ</button><button class="x" data-act="askprod" data-i="${i}" aria-label="Bỏ món ${esc(p.name)}">✕</button></span></div>`;
+  });
+  h += `</div><form class="addform" data-form="prod"><input class="inp" id="newprod" placeholder="Tên món mới" autocomplete="off"><button class="btn pri">Thêm</button></form>`;
+
+  h += `<h2>Khách hàng</h2><div class="list">`;
+  if (!cs.length) h += `<div class="empty">Chưa có khách.</div>`;
+  cs.forEach((c,i) => {
+    if (S.confirmId === 'c'+i) h += `<div class="row confirm"><div class="name">Bỏ khách “${esc(c)}”? Đơn cũ vẫn giữ.</div><div class="btns"><button class="btn danger" data-act="delcust" data-i="${i}">Bỏ</button><button class="btn ghost" data-act="nodel">Không</button></div></div>`;
+    else h += `<div class="set-row"><span class="nm">${esc(c)}</span><span class="r">${cs.length>1?`<button class="x" data-act="askcust" data-i="${i}" aria-label="Bỏ khách ${esc(c)}">✕</button>`:''}</span></div>`;
+  });
+  h += `</div><form class="addform" data-form="cust"><input class="inp" id="newcust" placeholder="Tên khách mới" autocomplete="off"><button class="btn pri">Thêm</button></form>`;
+
+  const last = D.sync.lastOk ? new Date(D.sync.lastOk).toLocaleString('vi-VN') : 'chưa lần nào';
+  h += `<h2 id="saoluu">Sao lưu Google Sheets</h2><div class="card stack">
+    <label><span class="lab">Link ứng dụng web (…/exec)</span><input class="inp" id="syncurl" value="${esc(D.sync.url)}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <label><span class="lab">Mã bí mật</span><input class="inp" id="synckey" value="${esc(D.sync.key)}" placeholder="Mã đã đặt trong code" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <button class="btn ok wide" data-act="synctest">Lưu và kiểm tra</button>
+    ${D.sync.url ? `<p class="hint" style="margin:0">Lần sao lưu gần nhất: ${last}${pending() ? ` · còn <b>${pending()}</b> dòng chờ gửi` : ''}${S.syncErr ? `<br><b style="color:var(--danger)">${esc(S.syncErr)}</b>` : ''}</p>
+      <button class="btn ghost wide" data-act="pushall">Gửi lại toàn bộ sổ lên Sheets</button>
+      <button class="btn ghost wide" data-act="pull">Khôi phục sổ từ Sheets</button>` : ''}
+  </div>
+  <h2>File sao lưu</h2><div class="card stack">
+    <p class="hint" style="margin:0">Lưu cả sổ, bảng giá và khách vào một file. Gửi vào “Cloud của tôi” trên Zalo hoặc chọn “Lưu vào Tệp”.</p>
+    <button class="btn ghost wide" data-act="backupfile">Gửi file sao lưu</button>
+    <button class="btn ghost wide" data-act="openfile">Mở file sao lưu (khôi phục)</button>
+  </div>
+  <p class="hint">Trong máy đang có ${D.orders.length} dòng.</p>`;
+  return h;
+}
+
+/* ---------- number pad ---------- */
+let P = null;
+function openPad(cfg){ P = cfg; P.active = P.active || 0; drawPad(); }
+function closeLayer(){ P = null; layer.innerHTML = ''; }
+const num = s => { const n = parseFloat(String(s).replace(',', '.')); return isFinite(n) ? n : 0; };
+const showVal = f => f.dec ? (f.val === '' ? '0' : f.val) : (f.val === '' ? '0' : money(num(f.val)));
+function drawPad(){
+  const f = P.fields, a = f[P.active];
+  const total = f.length === 2 ? num(f[0].val)*num(f[1].val) : null;
+  layer.innerHTML = `<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-label="${esc(P.title)}">
+    <h3><span>${esc(P.title)}</span>${P.onDelete ? '<button class="btn ghost" data-act="paddel" style="font-size:16px;min-height:44px">Xóa dòng</button>' : ''}</h3>
+    <div class="fields">${f.map((x,i) => `<button class="field ${f.length===1?'solo':''}" data-act="field" data-i="${i}" aria-pressed="${i===P.active}"><div class="fl">${esc(x.label)}</div><div class="fv">${showVal(x)} <small style="font-size:16px">${x.unit}</small></div></button>`).join('')}</div>
+    ${total!==null ? `<div class="result"><span>Thành tiền</span><b>${money(total)} đ</b></div>` : '<div style="height:12px"></div>'}
+    <div class="pad">
+      ${['1','2','3','4','5','6','7','8','9'].map(k => `<button class="key" data-k="${k}">${k}</button>`).join('')}
+      ${a.dec ? `<button class="key fn" data-k=",">,</button>` : `<button class="key fn" data-k="000">000</button>`}
+      <button class="key" data-k="0">0</button>
+      <button class="key fn" data-k="del" aria-label="Xóa số">⌫</button>
+    </div>
+    <div class="sheet-btns"><button class="btn ghost" data-act="close">Hủy</button><button class="btn ok" data-act="padsave">LƯU</button></div>
+  </div></div>`;
+}
+function padKey(k){
+  const f = P.fields[P.active];
+  if (P.fresh && P.fresh[P.active]) { f.val = ''; P.fresh[P.active] = false; }
+  if (k === 'del') f.val = f.val.slice(0,-1);
+  else if (k === ',') { if (!f.val.includes(',')) f.val = (f.val || '0') + ','; }
+  else {
+    if (f.dec && f.val.includes(',') && f.val.split(',')[1].length >= 2) return;
+    if (f.val.replace(',','').length >= 12) return;
+    f.val = (f.val === '0' ? '' : f.val) + k;
+    if (!f.dec) f.val = f.val.replace(/^0+(?=\d)/,'');
+  }
+  drawPad();
+}
+const toField = (n, dec) => n ? (dec ? kg(n).replace(/\./g,'') : String(Math.round(n))) : '';
+
+function openEntry(prod, existing){
+  openPad({
+    title: existing ? existing.item : prod.name,
+    fields: [
+      {key:'qty', label:'Số ký', unit:'kg', val: existing ? toField(existing.qty, true) : '', dec:true},
+      {key:'price', label:'Đơn giá', unit:'đ', val: toField(existing ? existing.price : prod.price, false), dec:false},
+    ],
+    fresh: [false, true],
+    onDelete: existing ? () => { closeLayer(); S.confirmId = existing.id; render(); } : null,
+    onSave: v => {
+      if (!(v.qty > 0)) { toast('Hãy nhập số ký.', true); return false; }
+      if (!(v.price > 0)) { toast('Hãy nhập đơn giá.', true); return false; }
+      const item = existing ? existing.item : prod.name;
+      const o = { id: existing ? existing.id : newId(), date:S.date, customer:curCustomer(), item, qty:Math.round(v.qty*100)/100, price:Math.round(v.price), at: existing ? existing.at : Date.now() };
+      D.orders = D.orders.filter(x => x.id !== o.id); D.orders.push(o); queueUp(o);
+      if (!persist()) return false;
+      toast(`Đã lưu: ${item} ${kg(o.qty)} kg = ${money(o.qty*o.price)} đ`);
+      render(); flush(); return true;
+    }
+  });
+}
+
+/* ---------- files: share to Zalo / save ---------- */
+async function shareFile(file, title){
+  try {
+    if (navigator.canShare && navigator.canShare({files:[file]})) { await navigator.share({files:[file], title}); return true; }
+  } catch(e) { if (e.name === 'AbortError') return false; }
+  // Fallback: plain download
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  return true;
+}
+function readySheet(file, title, note){
+  // Sharing must start from a tap, so show a button once the file is ready.
+  layer.innerHTML = `<div class="scrim" data-act="scrim"><div class="sheet" role="dialog">
+    <h3>Đã tạo xong</h3>
+    <p class="hint" style="margin:0 0 14px">${note}</p>
+    <div class="stack"><button class="btn pri wide" id="dosend" style="min-height:64px;font-size:21px">Gửi</button>
+    <button class="btn ghost wide" data-act="close">Đóng</button></div></div></div>`;
+  $('#dosend').onclick = async () => { const ok = await shareFile(file, title); if (ok) closeLayer(); };
+}
+const slug = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/gi,'d').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').toLowerCase();
+
+function monthText(){
+  const rows = sortOrders(byCust(ordersOfMonth(S.bookMonth)));
+  const lines = [curCustomer().toUpperCase()+' – '+monthLabel(S.bookMonth)];
+  let last = '';
+  rows.forEach(o => { if (o.date !== last) { lines.push(''); lines.push(dmy(o.date)+':'); last = o.date; }
+    lines.push(`  ${o.item} ${kg(o.qty)}kg x ${money(o.price)} = ${money(o.qty*o.price)}`); });
+  lines.push(''); lines.push('TỔNG CỘNG: '+money(rows.reduce((s,o)=>s+o.qty*o.price,0))+' đ');
+  return lines.join('\n');
+}
+function monthCsv(){
+  const rows = sortOrders(byCust(ordersOfMonth(S.bookMonth)));
+  const q = s => '"'+String(s).replace(/"/g,'""')+'"';
+  const out = [['Ngày','Món','Số lượng','Đơn giá','Thành tiền'].map(q).join(',')];
+  rows.forEach(o => out.push([dmy(o.date)+'/'+o.date.slice(0,4), o.item, o.qty, o.price, Math.round(o.qty*o.price)].map(q).join(',')));
+  out.push(['','','','TỔNG CỘNG', rows.reduce((s,o)=>s+Math.round(o.qty*o.price),0)].map(q).join(','));
+  return '﻿'+out.join('\r\n');
+}
+
+const libs = {};
+function loadScript(src){
+  return libs[src] = libs[src] || new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = src; s.onload = res;
+    s.onerror = () => { delete libs[src]; rej(new Error('load')); }; document.head.appendChild(s);
+  });
+}
+const H2C = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+const JSPDF = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+
+function paperPages(perPage){
+  const rows = sortOrders(byCust(ordersOfMonth(S.bookMonth)));
+  const total = rows.reduce((s,o)=>s+o.qty*o.price,0);
+  const chunks = [];
+  if (!perPage) chunks.push(rows);
+  else { let i = 0, first = true; while (i < rows.length) { const n = first ? perPage - 4 : perPage; chunks.push(rows.slice(i, i+n)); i += n; first = false; } }
+  const td = 'padding:5px 8px;border:1px solid #c9ccc5;';
+  return chunks.map((list, pi) => {
+    let last = pi > 0 ? (chunks[pi-1].slice(-1)[0] || {}).date : '';
+    const body = list.map(o => { const showDate = o.date !== last; last = o.date;
+      return `<tr><td style="${td}">${showDate ? dmy(o.date)+'/'+o.date.slice(0,4) : ''}</td><td style="${td}">${esc(o.item)}</td>
+        <td style="${td}text-align:right">${kg(o.qty)}</td><td style="${td}text-align:right">${money(o.price)}</td><td style="${td}text-align:right">${money(o.qty*o.price)}</td></tr>`; }).join('');
+    const isLast = pi === chunks.length-1;
+    return `<div style="width:794px;${perPage ? 'height:1123px;' : ''}padding:44px 48px;box-sizing:border-box;background:#fff;color:#111;font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;font-size:15px;line-height:1.35;position:relative;font-variant-numeric:tabular-nums">
+      ${pi === 0 ? `<div style="text-align:center;font-size:28px;font-weight:800;letter-spacing:.03em">${esc(curCustomer().toUpperCase())}</div>
+        <div style="text-align:center;font-size:17px;margin:4px 0 18px;color:#444">${monthLabel(S.bookMonth)}</div>` : ''}
+      <table style="width:100%;border-collapse:collapse">
+        <tr style="background:#f0f1ed;font-weight:700"><td style="${td}">Ngày</td><td style="${td}">Món</td><td style="${td}text-align:right">Số lượng (kg)</td><td style="${td}text-align:right">Đơn giá</td><td style="${td}text-align:right">Thành tiền</td></tr>
+        ${body}
+        ${isLast ? `<tr style="font-weight:800;font-size:17px"><td colspan="4" style="${td}text-align:center">TỔNG CỘNG</td><td style="${td}text-align:right">${money(total)}</td></tr>` : ''}
+      </table>
+      ${perPage && chunks.length > 1 ? `<div style="position:absolute;bottom:28px;left:0;right:0;text-align:center;color:#666;font-size:13px">Trang ${pi+1}/${chunks.length}</div>` : ''}
+    </div>`;
+  });
+}
+async function renderPaper(html){
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;left:-10000px;top:0;';
+  box.innerHTML = html; document.body.appendChild(box);
+  try { return await window.html2canvas(box.firstElementChild, {scale:2, backgroundColor:'#ffffff', logging:false}); }
+  finally { box.remove(); }
+}
+function busy(msg){ layer.innerHTML = `<div class="scrim"><div class="sheet"><h3>${esc(msg)}</h3><p class="hint">Chờ vài giây…</p></div></div>`; }
+async function exportFile(kind){
+  const name = 'so-' + slug(curCustomer()) + '-' + S.bookMonth;
+  busy(kind === 'pdf' ? 'Đang tạo file PDF' : 'Đang tạo ảnh');
+  try {
+    await loadScript(H2C);
+    let file;
+    if (kind === 'pdf') {
+      await loadScript(JSPDF);
+      const pdf = new window.jspdf.jsPDF({unit:'mm', format:'a4'});
+      const pages = paperPages(30);
+      for (let i = 0; i < pages.length; i++) {
+        const c = await renderPaper(pages[i]);
+        if (i) pdf.addPage();
+        pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+      }
+      file = new File([pdf.output('blob')], name + '.pdf', {type:'application/pdf'});
+    } else {
+      const c = await renderPaper(paperPages(0)[0]);
+      const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+      file = new File([blob], name + '.png', {type:'image/png'});
+    }
+    readySheet(file, monthLabel(S.bookMonth), 'Bấm <b>Gửi</b>, chọn <b>Zalo</b> trong danh sách, rồi chọn người nhận.');
+  } catch(_) { closeLayer(); toast('Không tạo được file. Lần đầu cần có mạng, hãy thử lại.', true); }
+}
+function zaloSheet(){
+  layer.innerHTML = `<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-label="Gửi qua Zalo">
+    <h3>Gửi sổ ${esc(monthLabel(S.bookMonth).toLowerCase())}</h3>
+    <div class="stack">
+      <button class="btn pri wide" data-act="mkpdf" style="min-height:64px;font-size:20px">Gửi file PDF</button>
+      <button class="btn ghost wide" data-act="mkimg" style="min-height:64px;font-size:20px">Gửi ảnh (xem ngay trong Zalo)</button>
+      <button class="btn ghost wide" data-act="close">Đóng</button>
+    </div></div></div>`;
+}
+function showText(txt){
+  layer.innerHTML = `<div class="scrim" data-act="scrim"><div class="sheet"><h3>Chọn hết rồi sao chép</h3>
+    <textarea id="copytxt" readonly class="inp" style="height:50vh;font-size:15px">${esc(txt)}</textarea>
+    <button class="btn ghost wide" data-act="close" style="margin-top:10px">Đóng</button></div></div>`;
+  const ta = $('#copytxt'); ta.focus(); ta.select();
+}
+
+/* ---------- restore ---------- */
+function applyRestore(orders, settings){
+  D.orders = orders;
+  if (settings) D.settings = settings;
+  if (!products().length) { // rebuild price list from the latest price of each item
+    const last = {}; sortOrders(orders).forEach(o => last[o.item] = o.price);
+    D.settings.products = Object.entries(last).map(([name, price]) => ({name, price}));
+  }
+  if (!(D.settings.customers || []).length) D.settings.customers = [...new Set(orders.map(o => o.customer).filter(Boolean))];
+  D.queue = {up:{}, del:[]};
+  persist(); render();
+  toast(`Đã khôi phục ${orders.length} dòng.`);
+}
+
+let toastT;
+function toast(msg, err){
+  let t = $('.toast'); if (!t) { t = document.createElement('div'); document.body.appendChild(t); }
+  t.className = 'toast'+(err?' err':''); t.textContent = msg; t.setAttribute('role','status');
+  clearTimeout(toastT); toastT = setTimeout(() => t.remove(), err ? 4500 : 2600);
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', async e => {
+  const key = e.target.closest('[data-k]');
+  if (key && P) { padKey(key.dataset.k); return; }
+  const tab = e.target.closest('.tab');
+  if (tab) { S.tab = tab.dataset.tab; S.confirmId = null; try { sessionStorage.setItem('tab', S.tab); } catch(_){} render(); window.scrollTo(0,0); return; }
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const act = el.dataset.act;
+  if (act === 'scrim') { if (e.target === el) closeLayer(); return; }
+  if (act === 'close') { closeLayer(); return; }
+  if (act === 'field') { P.active = +el.dataset.i; drawPad(); return; }
+  if (act === 'paddel') { P.onDelete(); return; }
+  if (act === 'padsave') { const v = {}; P.fields.forEach(f => v[f.key] = num(f.val)); if (P.onSave(v) !== false) closeLayer(); return; }
+  if (act === 'day') { S.date = addDays(S.date, +el.dataset.v); S.confirmId = null; render(); return; }
+  if (act === 'month') { S.bookMonth = addMonth(S.bookMonth, +el.dataset.v); render(); return; }
+  if (act === 'cust') { S.customer = el.dataset.v; try { localStorage.setItem(KEY+'-cust', S.customer); } catch(_){} render(); return; }
+  if (act === 'pick') { openEntry(products()[+el.dataset.i]); return; }
+  if (act === 'edit') { const o = D.orders.find(x => x.id === el.dataset.id); if (o) openEntry(null, o); return; }
+  if (act === 'nodel') { S.confirmId = null; render(); return; }
+  if (act === 'del') {
+    const id = el.dataset.id; S.confirmId = null;
+    D.orders = D.orders.filter(o => o.id !== id); queueDel(id); persist(); render(); toast('Đã xóa'); flush(); return;
+  }
+  if (act === 'gotoset') { S.tab = 'gia'; render(); setTimeout(() => { const s = $('#saoluu'); if (s) s.scrollIntoView({behavior:'smooth'}); }, 50); return; }
+  if (act === 'flush') { flush(); return; }
+  if (act === 'price') {
+    const i = +el.dataset.i, p = products()[i];
+    openPad({ title:'Giá '+p.name, fields:[{key:'price', label:'Giá mỗi ký', unit:'đ', val:String(p.price), dec:false}], fresh:[true],
+      onSave: v => { if (!(v.price>0)) { toast('Hãy nhập giá.', true); return false; }
+        D.settings.products[i].price = Math.round(v.price); persist(); render(); toast(`Giá ${p.name}: ${money(v.price)} đ/kg`); return true; } });
+    return;
+  }
+  if (act === 'askprod') { S.confirmId = 'p'+el.dataset.i; render(); return; }
+  if (act === 'askcust') { S.confirmId = 'c'+el.dataset.i; render(); return; }
+  if (act === 'delprod') { D.settings.products.splice(+el.dataset.i, 1); S.confirmId = null; persist(); render(); return; }
+  if (act === 'delcust') { D.settings.customers.splice(+el.dataset.i, 1); S.confirmId = null; persist(); render(); return; }
+  if (act === 'zalo') { zaloSheet(); return; }
+  if (act === 'mkpdf') { exportFile('pdf'); return; }
+  if (act === 'mkimg') { exportFile('img'); return; }
+  if (act === 'copy') {
+    const txt = monthText();
+    try { await navigator.clipboard.writeText(txt); toast('Đã sao chép. Mở Zalo và dán vào.'); } catch(_) { showText(txt); }
+    return;
+  }
+  if (act === 'csv') {
+    const f = new File([monthCsv()], 'so-' + slug(curCustomer()) + '-' + S.bookMonth + '.csv', {type:'text/csv'});
+    await shareFile(f, monthLabel(S.bookMonth)); return;
+  }
+  if (act === 'synctest') {
+    const url = $('#syncurl').value.trim(), k = $('#synckey').value.trim();
+    if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { toast('Link phải bắt đầu bằng https://script.google.com và kết thúc bằng /exec', true); return; }
+    if (!k) { toast('Hãy nhập mã bí mật.', true); return; }
+    el.disabled = true; el.textContent = 'Đang kiểm tra…';
+    try {
+      const r = await fetch(url + '?key=' + encodeURIComponent(k));
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.loi === 'sai mã' ? 'Sai mã bí mật. Mã phải giống hệt trong code.' : 'Sheets báo lỗi: ' + (j.loi || ''));
+      const first = !D.sync.url;
+      D.sync.url = url; D.sync.key = k;
+      if (first) D.orders.forEach(queueUp); // first time: upload everything already on the phone
+      persist(); S.syncErr = '';
+      toast(first ? `Kết nối được! Đang gửi ${D.orders.length} dòng lên Sheets…` : 'Kết nối được!');
+      render(); flush();
+    } catch(err) {
+      el.disabled = false; el.textContent = 'Lưu và kiểm tra';
+      toast(err.message && !/fetch|Load failed|JSON/i.test(err.message) ? err.message : 'Không kết nối được. Kiểm tra lại link (phải là bản “Ứng dụng web”, quyền “Bất kỳ ai”).', true);
+    }
+    return;
+  }
+  if (act === 'pushall') { D.orders.forEach(queueUp); persist(); flush(); toast('Đang gửi lại toàn bộ sổ…'); return; }
+  if (act === 'pull') {
+    if (!confirm('Thay sổ trong máy bằng sổ trên Google Sheets?')) return;
+    try {
+      const r = await fetch(D.sync.url + '?key=' + encodeURIComponent(D.sync.key)); const j = await r.json();
+      if (!j.ok) throw 0;
+      applyRestore(j.rows.map((o,i) => ({...o, at:i})), null);
+    } catch(_) { toast('Không tải được từ Sheets.', true); }
+    return;
+  }
+  if (act === 'backupfile') {
+    const f = new File([JSON.stringify({app:'so-ban-thit-bo', v:1, at:Date.now(), orders:D.orders, settings:D.settings})], 'sao-luu-so-bo-' + iso(new Date()) + '.json', {type:'application/json'});
+    if (await shareFile(f, 'Sao lưu sổ')) { D.lastFile = Date.now(); persist(); render(); }
+    return;
+  }
+  if (act === 'openfile') { $('#restorefile').click(); return; }
+});
+$('#restorefile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (j.app !== 'so-ban-thit-bo' || !Array.isArray(j.orders)) throw 0;
+    if (!confirm(`File có ${j.orders.length} dòng. Thay sổ trong máy bằng file này?`)) return;
+    applyRestore(j.orders, j.settings);
+    if (D.sync.url) { D.orders.forEach(queueUp); persist(); flush(); }
+  } catch(_) { toast('File này không phải file sao lưu của app.', true); }
+});
+document.addEventListener('change', e => { if (e.target.id === 'pickdate' && e.target.value) { S.date = e.target.value; render(); } });
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  const form = e.target.dataset.form, input = e.target.querySelector('input'), name = input.value.trim();
+  if (!name) { input.focus(); return; }
+  if (form === 'prod') {
+    if (products().some(p => p.name.toLowerCase() === name.toLowerCase())) { toast('Món này đã có.', true); return; }
+    D.settings.products.push({name, price:0}); persist(); render(); toast('Đã thêm “'+name+'”. Bấm vào giá để nhập giá.');
+  } else {
+    D.settings.customers = D.settings.customers || [];
+    if (D.settings.customers.includes(name)) { toast('Khách này đã có.', true); return; }
+    D.settings.customers.push(name); persist(); render(); toast('Đã thêm khách “'+name+'”.');
+  }
+});
+
+render(); flush();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
