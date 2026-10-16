@@ -49,6 +49,13 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .cust{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .chip{padding:10px 16px;border-radius:999px;background:var(--surface);border:2px solid var(--line);font-weight:600;font-size:17px}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.custgrid{display:grid;gap:12px}
+.custbig{background:var(--surface);border:2px solid var(--line);border-radius:20px;padding:22px 20px;text-align:left;min-height:100px;display:flex;justify-content:space-between;align-items:center;gap:12px;box-shadow:var(--shadow);width:100%}
+.custbig:active{transform:scale(.98);border-color:var(--accent)}
+.custbig b{font-size:30px;font-weight:800;line-height:1.15;overflow-wrap:anywhere}
+.custbig small{display:block;color:var(--muted);font-size:16px;font-weight:600;margin-top:4px}
+.custbig .go{font-size:34px;color:var(--accent);font-weight:700;flex-shrink:0}
+.back{font-weight:700;font-size:18px;color:var(--accent);min-height:48px;padding:0 4px 0 0}
 
 .datebar{display:grid;grid-template-columns:64px 1fr 64px;gap:8px;align-items:stretch;margin-bottom:16px}
 .arrow{background:var(--surface);border:2px solid var(--line);border-radius:16px;font-size:30px;font-weight:700;min-height:64px}
@@ -261,13 +268,28 @@ function custChips(){
   return `<div class="cust">${cs.map(c => `<button class="chip" data-act="cust" data-v="${esc(c)}" aria-pressed="${c===curCustomer()}">${esc(c)}</button>`).join('')}</div>`;
 }
 
+function viewPickCustomer(){
+  const today = iso(new Date());
+  let h = header('Nhập hàng') + `<h2>Chọn khách hàng</h2><div class="custgrid">`;
+  customers().forEach(c => {
+    const rows = D.orders.filter(o => o.date === today && (o.customer || customers()[0]) === c);
+    const sum = rows.reduce((s,o) => s + o.qty*o.price, 0);
+    h += `<button class="custbig" data-act="pickcust" data-v="${esc(c)}"><span><b>${esc(c)}</b>
+      <small>${rows.length ? `Hôm nay: ${rows.length} món · ${money(sum)} đ` : 'Hôm nay chưa nhập'}</small></span><span class="go" aria-hidden="true">›</span></button>`;
+  });
+  h += `</div><form class="addform" data-form="cust" style="margin-top:16px"><input class="inp" id="newcust" placeholder="Thêm khách mới" autocomplete="off"><button class="btn pri">Thêm</button></form>`;
+  return h;
+}
+
 function viewEntry(){
+  if (!S.picked) return viewPickCustomer();
   const isToday = S.date === iso(new Date());
   const d = fromIso(S.date);
   const rows = sortOrders(byCust(D.orders.filter(o => o.date === S.date)));
   const total = rows.reduce((s,o) => s + o.qty*o.price, 0);
   const prods = products();
-  let h = header(curCustomer()) + custChips() + `
+  let h = `<div class="top"><button class="back" data-act="unpick">‹ Đổi khách</button>${syncChip()}</div>
+  <div class="shop" style="font-size:30px;margin-bottom:12px">${esc(curCustomer())}</div>
   <div class="datebar">
     <button class="arrow" data-act="day" data-v="-1" aria-label="Ngày trước">‹</button>
     <label class="datebox"><span class="d1">${WD[d.getDay()]}${isToday?'<span class="today-pill">Hôm nay</span>':''}</span>
@@ -649,7 +671,7 @@ document.addEventListener('click', async e => {
   const key = e.target.closest('[data-k]');
   if (key && P) { padKey(key.dataset.k); return; }
   const tab = e.target.closest('.tab');
-  if (tab) { S.tab = tab.dataset.tab; S.confirmId = null; try { sessionStorage.setItem('tab', S.tab); } catch(_){} render(); window.scrollTo(0,0); return; }
+  if (tab) { if (tab.dataset.tab === 'nhap') S.picked = false; S.tab = tab.dataset.tab; S.confirmId = null; try { sessionStorage.setItem('tab', S.tab); } catch(_){} render(); window.scrollTo(0,0); return; }
   const el = e.target.closest('[data-act]'); if (!el) return;
   const act = el.dataset.act;
   if (act === 'scrim') { if (e.target === el) closeLayer(); return; }
@@ -659,6 +681,8 @@ document.addEventListener('click', async e => {
   if (act === 'padsave') { const v = {}; P.fields.forEach(f => v[f.key] = num(f.val)); if (P.onSave(v) !== false) closeLayer(); return; }
   if (act === 'day') { S.date = addDays(S.date, +el.dataset.v); S.confirmId = null; render(); return; }
   if (act === 'month') { S.bookMonth = addMonth(S.bookMonth, +el.dataset.v); render(); return; }
+  if (act === 'pickcust') { S.customer = el.dataset.v; S.picked = true; S.date = iso(new Date()); S.confirmId = null; try { localStorage.setItem(KEY+'-cust', S.customer); } catch(_){} render(); window.scrollTo(0,0); return; }
+  if (act === 'unpick') { S.picked = false; S.confirmId = null; render(); window.scrollTo(0,0); return; }
   if (act === 'cust') { S.customer = el.dataset.v; try { localStorage.setItem(KEY+'-cust', S.customer); } catch(_){} render(); return; }
   if (act === 'pick') { openEntry(products()[+el.dataset.i]); return; }
   if (act === 'edit') { const o = D.orders.find(x => x.id === el.dataset.id); if (o) openEntry(null, o); return; }
