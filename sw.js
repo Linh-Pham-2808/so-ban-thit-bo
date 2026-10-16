@@ -1,5 +1,5 @@
 // Cache the app so it opens without internet. Bump VERSION when files change.
-const VERSION = 'so-bo-v3';
+const VERSION = 'so-bo-v4';
 const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 const LIBS = [
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
@@ -27,6 +27,7 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.hostname.endsWith('google.com') || url.hostname.endsWith('googleusercontent.com')) return; // backup calls: always network
+  if (url.pathname.endsWith('/version.json')) return; // update check: always network
   if (req.mode === 'navigate') {
     // Network first so updates arrive; fall back to cache offline.
     e.respondWith(fetch(req).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put('./index.html', copy)); return r; })

@@ -161,6 +161,7 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
 
 <script>
 const SEED = null;
+const BUILD = 'v4';   // tăng cùng với version.json mỗi lần cập nhật app
 (() => {
 const $ = (s, r=document) => r.querySelector(s);
 const app = $('#app'), layer = $('#layer');
@@ -193,6 +194,7 @@ function persist(){
   catch(e) { toast('Không lưu được vào máy (bộ nhớ đầy?). Hãy sao lưu ngay.', true); return false; }
 }
 load();
+if (D.sync.url && D.sync.verified === undefined) { D.sync.verified = true; persist(); }
 try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e) {}
 
 const S = { tab:'nhap', date: iso(new Date()), bookMonth: iso(new Date()).slice(0,7), customer:null, confirmId:null, syncing:false, syncErr:'' };
@@ -210,11 +212,17 @@ const sortOrders = list => list.slice().sort((a,b) => a.date.localeCompare(b.dat
 const ordersOfMonth = m => D.orders.filter(o => o.date.slice(0,7) === m);
 
 /* ---------- Google Sheets backup ---------- */
+function parseSyncInput(rawUrl, rawKey){
+  const t = String(rawUrl || '').trim();
+  const m = t.match(/https:\/\/script\.google\.com\/[^\s?#]*?\/exec/);
+  const k = String(rawKey || '').trim() || ((t.match(/[?&]key=([^&#\s]+)/) || [])[1] ? decodeURIComponent(t.match(/[?&]key=([^&#\s]+)/)[1]) : '');
+  return {url: m ? m[0] : t, key: k, ok: !!m};
+}
 const pending = () => Object.keys(D.queue.up).length + D.queue.del.length;
 function queueUp(o){ D.queue.up[o.id] = o; }
 function queueDel(id){ delete D.queue.up[id]; if (!D.queue.del.includes(id)) D.queue.del.push(id); }
 async function flush(){
-  if (!D.sync.url || S.syncing || !pending()) return;
+  if (!D.sync.url || !D.sync.verified || S.syncing || !pending()) return;
   if (!navigator.onLine) return;
   S.syncing = true; S.syncErr = ''; render();
   try {
@@ -242,6 +250,7 @@ setInterval(flush, 60000);
 
 function syncChip(){
   if (!D.sync.url) return `<button class="sync off" data-act="gotoset">Chưa cài sao lưu</button>`;
+  if (!D.sync.verified) return `<button class="sync wait" data-act="gotoset">Sao lưu chưa kiểm tra</button>`;
   if (S.syncing) return `<span class="sync wait">Đang sao lưu…</span>`;
   const n = pending();
   if (n) return `<button class="sync wait" data-act="flush">Chờ sao lưu ${n} dòng</button>`;
@@ -252,7 +261,7 @@ function syncChip(){
 function render(){
   document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab===S.tab)));
   let h = '';
-  if (!D.sync.url && Date.now() - (D.lastFile||0) > WEEK && D.orders.length)
+  if (!D.sync.verified && Date.now() - (D.lastFile||0) > WEEK && D.orders.length)
     h += `<button class="banner" data-act="gotoset"><b>Sổ chỉ nằm trong máy này.</b> Bấm vào đây để cài sao lưu, phòng khi mất hoặc hỏng máy.</button>`;
   if (S.tab === 'nhap') h += viewEntry();
   else if (S.tab === 'so') h += viewBook();
@@ -375,7 +384,8 @@ function viewSettings(){
     <label><span class="lab">Link ứng dụng web (…/exec)</span><input class="inp" id="syncurl" value="${esc(D.sync.url)}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
     <label><span class="lab">Mã bí mật</span><input class="inp" id="synckey" value="${esc(D.sync.key)}" placeholder="Mã đã đặt trong code" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
     <button class="btn ok wide" data-act="synctest">Lưu và kiểm tra</button>
-    ${D.sync.url ? `<p class="hint" style="margin:0">Lần sao lưu gần nhất: ${last}${pending() ? ` · còn <b>${pending()}</b> dòng chờ gửi` : ''}${S.syncErr ? `<br><b style="color:var(--danger)">${esc(S.syncErr)}</b>` : ''}</p>
+    ${D.sync.url && !D.sync.verified ? `<p class="hint" style="margin:0">Đã ghi nhớ link và mã. Bấm <b>Lưu và kiểm tra</b> để bắt đầu sao lưu.</p>` : ''}
+    ${D.sync.verified ? `<p class="hint" style="margin:0">Lần sao lưu gần nhất: ${last}${pending() ? ` · còn <b>${pending()}</b> dòng chờ gửi` : ''}${S.syncErr ? `<br><b style="color:var(--danger)">${esc(S.syncErr)}</b>` : ''}</p>
       <button class="btn ghost wide" data-act="pushall">Gửi lại toàn bộ sổ lên Sheets</button>
       <button class="btn ghost wide" data-act="pull">Khôi phục sổ từ Sheets</button>` : ''}
   </div>
@@ -722,16 +732,18 @@ document.addEventListener('click', async e => {
     persist(); toast('Đã lưu thông tin cửa hàng.'); return;
   }
   if (act === 'synctest') {
-    const url = $('#syncurl').value.trim(), k = $('#synckey').value.trim();
-    if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) { toast('Link phải bắt đầu bằng https://script.google.com và kết thúc bằng /exec', true); return; }
+    const {url, key: k, ok} = parseSyncInput($('#syncurl').value, $('#synckey').value);
+    D.sync.url = url; D.sync.key = k; persist();
+    $('#syncurl').value = url; $('#synckey').value = k;
+    if (!ok) { toast('Chưa thấy link /exec. Lấy ở Apps Script → Triển khai → Quản lý triển khai → URL ứng dụng web.', true); return; }
     if (!k) { toast('Hãy nhập mã bí mật.', true); return; }
     el.disabled = true; el.textContent = 'Đang kiểm tra…';
     try {
       const r = await fetch(url + '?key=' + encodeURIComponent(k));
       const j = await r.json();
       if (!j.ok) throw new Error(j.loi === 'sai mã' ? 'Sai mã bí mật. Mã phải giống hệt trong code.' : 'Sheets báo lỗi: ' + (j.loi || ''));
-      const first = !D.sync.url;
-      D.sync.url = url; D.sync.key = k;
+      const first = !D.sync.verified;
+      D.sync.verified = true;
       if (first) D.orders.forEach(queueUp); // first time: upload everything already on the phone
       persist(); S.syncErr = '';
       toast(first ? `Kết nối được! Đang gửi ${D.orders.length} dòng lên Sheets…` : 'Kết nối được!');
@@ -769,6 +781,16 @@ $('#restorefile').addEventListener('change', async e => {
     if (D.sync.url) { D.orders.forEach(queueUp); persist(); flush(); }
   } catch(_) { toast('File này không phải file sao lưu của app.', true); }
 });
+let syncDraftT;
+document.addEventListener('input', e => {
+  if (e.target.id !== 'syncurl' && e.target.id !== 'synckey') return;
+  clearTimeout(syncDraftT);
+  syncDraftT = setTimeout(() => {
+    const {url, key} = parseSyncInput($('#syncurl').value, $('#synckey').value);
+    if (url === D.sync.url && key === D.sync.key) return;
+    D.sync.url = url; D.sync.key = key; D.sync.verified = false; persist();
+  }, 400);
+});
 document.addEventListener('change', e => { if (e.target.id === 'pickdate' && e.target.value) { S.date = e.target.value; render(); } });
 document.addEventListener('submit', e => {
   e.preventDefault();
@@ -786,6 +808,31 @@ document.addEventListener('submit', e => {
 
 render(); flush();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// Có bản mới trên mạng → hiện nút cập nhật (iPhone hay giữ app cũ trong bộ nhớ, không tự tải lại)
+let lastCheck = 0;
+async function checkUpdate(){
+  if (Date.now() - lastCheck < 60000 || !navigator.onLine) return;
+  lastCheck = Date.now();
+  try {
+    const r = await fetch('version.json?t=' + Date.now(), {cache:'no-store'});
+    const j = await r.json();
+    if (j.build && j.build !== BUILD && !$('#updbar')) {
+      const b = document.createElement('button');
+      b.id = 'updbar'; b.className = 'banner';
+      b.style.cssText = 'position:fixed;left:16px;right:16px;top:calc(8px + env(safe-area-inset-top,0px));z-index:30;max-width:528px;margin:0 auto;width:auto;background:var(--ok);color:var(--surface);font-weight:700;text-align:center;box-shadow:var(--shadow)';
+      b.textContent = 'Có bản mới – bấm để cập nhật';
+      b.onclick = async () => {
+        b.textContent = 'Đang cập nhật…';
+        try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) await reg.update(); } catch(_) {}
+        location.reload();
+      };
+      document.body.appendChild(b);
+    }
+  } catch(_) {}
+}
+checkUpdate();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
 })();
 </script>
 </body>
