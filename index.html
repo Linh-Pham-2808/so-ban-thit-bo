@@ -28,7 +28,7 @@
     --shadow:0 1px 2px rgba(0,0,0,.4);
   }
 }
-*{box-sizing:border-box}
+*{box-sizing:border-box;touch-action:manipulation}
 html,body{background:var(--bg);margin:0}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
@@ -161,7 +161,7 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
 
 <script>
 const SEED = null;
-const BUILD = 'v4';   // tăng cùng với version.json mỗi lần cập nhật app
+const BUILD = 'v5';   // tăng cùng với version.json mỗi lần cập nhật app
 (() => {
 const $ = (s, r=document) => r.querySelector(s);
 const app = $('#app'), layer = $('#layer');
@@ -224,7 +224,7 @@ function queueDel(id){ delete D.queue.up[id]; if (!D.queue.del.includes(id)) D.q
 async function flush(){
   if (!D.sync.url || !D.sync.verified || S.syncing || !pending()) return;
   if (!navigator.onLine) return;
-  S.syncing = true; S.syncErr = ''; render();
+  S.syncing = true; S.syncErr = ''; refreshSync();
   try {
     const del = D.queue.del.slice();
     const ups = Object.values(D.queue.up);
@@ -242,12 +242,18 @@ async function flush(){
   } catch(e) {
     S.syncErr = e.message && e.message !== 'Failed to fetch' && e.message !== 'Load failed' ? e.message : 'Chưa gửi được (mạng?)';
   }
-  S.syncing = false; render();
+  S.syncing = false; refreshSync();
 }
 window.addEventListener('online', flush);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flush(); });
 setInterval(flush, 60000);
 
+function refreshSync(){
+  document.querySelectorAll('.syncslot').forEach(el => el.innerHTML = syncChip());
+  // Cài đặt hiện chi tiết sao lưu: vẽ lại khi không có bảng nào đang mở và không đang gõ
+  const typing = document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName);
+  if (S.tab === 'gia' && !P && !layer.innerHTML && !typing) render();
+}
 function syncChip(){
   if (!D.sync.url) return `<button class="sync off" data-act="gotoset">Chưa cài sao lưu</button>`;
   if (!D.sync.verified) return `<button class="sync wait" data-act="gotoset">Sao lưu chưa kiểm tra</button>`;
@@ -269,7 +275,7 @@ function render(){
   app.innerHTML = h;
 }
 function header(title){
-  return `<div class="top"><div class="shop">${esc(title)}</div>${syncChip()}</div>`;
+  return `<div class="top"><div class="shop">${esc(title)}</div><span class="syncslot">${syncChip()}</span></div>`;
 }
 function custChips(){
   const cs = customers();
@@ -297,7 +303,7 @@ function viewEntry(){
   const rows = sortOrders(byCust(D.orders.filter(o => o.date === S.date)));
   const total = rows.reduce((s,o) => s + o.qty*o.price, 0);
   const prods = products();
-  let h = `<div class="top"><button class="back" data-act="unpick">‹ Đổi khách</button>${syncChip()}</div>
+  let h = `<div class="top"><button class="back" data-act="unpick">‹ Đổi khách</button><span class="syncslot">${syncChip()}</span></div>
   <div class="shop" style="font-size:30px;margin-bottom:12px">${esc(curCustomer())}</div>
   <div class="datebar">
     <button class="arrow" data-act="day" data-v="-1" aria-label="Ngày trước">‹</button>
@@ -417,16 +423,26 @@ function drawPad(){
   const total = f.length === 2 ? num(f[0].val)*num(f[1].val) : null;
   layer.innerHTML = `<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-label="${esc(P.title)}">
     <h3><span>${esc(P.title)}</span>${P.onDelete ? '<button class="btn ghost" data-act="paddel" style="font-size:16px;min-height:44px">Xóa dòng</button>' : ''}</h3>
-    <div class="fields">${f.map((x,i) => `<button class="field ${f.length===1?'solo':''}" data-act="field" data-i="${i}" aria-pressed="${i===P.active}"><div class="fl">${esc(x.label)}</div><div class="fv">${showVal(x)} <small style="font-size:16px">${x.unit}</small></div></button>`).join('')}</div>
-    ${total!==null ? `<div class="result"><span>Thành tiền</span><b>${money(total)} đ</b></div>` : '<div style="height:12px"></div>'}
+    <div class="fields">${f.map((x,i) => `<button class="field ${f.length===1?'solo':''}" data-act="field" data-i="${i}" aria-pressed="${i===P.active}"><div class="fl">${esc(x.label)}</div><div class="fv"><span id="fv${i}">${showVal(x)}</span> <small style="font-size:16px">${x.unit}</small></div></button>`).join('')}</div>
+    ${total!==null ? `<div class="result"><span>Thành tiền</span><b id="padres">${money(total)} đ</b></div>` : '<div style="height:12px"></div>'}
     <div class="pad">
       ${['1','2','3','4','5','6','7','8','9'].map(k => `<button class="key" data-k="${k}">${k}</button>`).join('')}
-      ${a.dec ? `<button class="key fn" data-k=",">,</button>` : `<button class="key fn" data-k="000">000</button>`}
+      <button class="key fn" id="padfn" data-k="${a.dec ? ',' : '000'}">${a.dec ? ',' : '000'}</button>
       <button class="key" data-k="0">0</button>
       <button class="key fn" data-k="del" aria-label="Xóa số">⌫</button>
     </div>
     <div class="sheet-btns"><button class="btn ghost" data-act="close">Hủy</button><button class="btn ok" data-act="padsave">LƯU</button></div>
   </div></div>`;
+}
+// Đổi số trên bảng nhập mà không vẽ lại cả bảng (vẽ lại làm bảng nháy và iPhone tưởng chạm 2 lần)
+function updatePad(){
+  const f = P.fields, a = f[P.active];
+  f.forEach((x,i) => {
+    const v = $('#fv'+i); if (v) v.textContent = showVal(x);
+    const b = layer.querySelector(`.field[data-i="${i}"]`); if (b) b.setAttribute('aria-pressed', String(i === P.active));
+  });
+  const res = $('#padres'); if (res) res.textContent = money(num(f[0].val)*num(f[1].val)) + ' đ';
+  const fn = $('#padfn'); if (fn) { const k = a.dec ? ',' : '000'; fn.dataset.k = k; fn.textContent = k; }
 }
 function padKey(k){
   const f = P.fields[P.active];
@@ -439,7 +455,7 @@ function padKey(k){
     f.val = (f.val === '0' ? '' : f.val) + k;
     if (!f.dec) f.val = f.val.replace(/^0+(?=\d)/,'');
   }
-  drawPad();
+  updatePad();
 }
 const toField = (n, dec) => n ? (dec ? kg(n).replace(/\./g,'') : String(Math.round(n))) : '';
 
@@ -686,7 +702,7 @@ document.addEventListener('click', async e => {
   const act = el.dataset.act;
   if (act === 'scrim') { if (e.target === el) closeLayer(); return; }
   if (act === 'close') { closeLayer(); return; }
-  if (act === 'field') { P.active = +el.dataset.i; drawPad(); return; }
+  if (act === 'field') { P.active = +el.dataset.i; updatePad(); return; }
   if (act === 'paddel') { P.onDelete(); return; }
   if (act === 'padsave') { const v = {}; P.fields.forEach(f => v[f.key] = num(f.val)); if (P.onSave(v) !== false) closeLayer(); return; }
   if (act === 'day') { S.date = addDays(S.date, +el.dataset.v); S.confirmId = null; render(); return; }

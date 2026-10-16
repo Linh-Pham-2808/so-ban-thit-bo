@@ -1,5 +1,5 @@
 // Cache the app so it opens without internet. Bump VERSION when files change.
-const VERSION = 'so-bo-v4';
+const VERSION = 'so-bo-v5';
 const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 const LIBS = [
   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
