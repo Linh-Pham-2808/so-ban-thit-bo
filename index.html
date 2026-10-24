@@ -161,7 +161,7 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
 
 <script>
 const SEED = null;
-const BUILD = 'v5';   // tăng cùng với version.json mỗi lần cập nhật app
+const BUILD = 'v6';   // tăng cùng với version.json mỗi lần cập nhật app
 (() => {
 const $ = (s, r=document) => r.querySelector(s);
 const app = $('#app'), layer = $('#layer');
@@ -210,6 +210,36 @@ const curCustomer = () => { const cs = customers(); return cs.includes(S.custome
 const byCust = list => { const c = curCustomer(); return list.filter(o => (o.customer || customers()[0]) === c); };
 const sortOrders = list => list.slice().sort((a,b) => a.date.localeCompare(b.date) || (a.at||0)-(b.at||0));
 const ordersOfMonth = m => D.orders.filter(o => o.date.slice(0,7) === m);
+
+/* ---------- giá riêng từng khách + món khách hay mua ---------- */
+// D.settings.custPrices = {khách: {món: giá}} — nhớ giá lần nhập gần nhất của từng khách
+const custOf = o => o.customer || customers()[0];
+function priceFor(c, p){ const cp = (D.settings.custPrices || {})[c]; return cp && cp[p.name] > 0 ? cp[p.name] : p.price; }
+const hasOwnPrice = (c, p) => { const cp = (D.settings.custPrices || {})[c]; return !!(cp && cp[p.name] > 0); };
+function setCustPrice(c, item, price){
+  const all = D.settings.custPrices = D.settings.custPrices || {};
+  all[c] = all[c] || {};
+  if (price > 0) all[c][item] = price; else delete all[c][item];
+}
+function buildCustPrices(){
+  D.settings.custPrices = {};
+  sortOrders(D.orders).forEach(o => setCustPrice(custOf(o), o.item, o.price));
+}
+// Món khách hay mua (số ngày có mua trong 60 ngày gần đây, rồi tới lần mua gần nhất) lên đầu
+function prodsFor(c){
+  const since = addDays(iso(new Date()), -60), days = {}, last = {};
+  D.orders.forEach(o => {
+    if (custOf(o) !== c) return;
+    if (!last[o.item] || o.date > last[o.item]) last[o.item] = o.date;
+    if (o.date >= since) (days[o.item] = days[o.item] || new Set()).add(o.date);
+  });
+  const list = products().map((p,i) => ({p, i, n: days[p.name] ? days[p.name].size : 0, last: last[p.name] || ''}));
+  return {
+    fav: list.filter(x => x.last).sort((a,b) => b.n-a.n || b.last.localeCompare(a.last) || a.i-b.i),
+    rest: list.filter(x => !x.last),
+  };
+}
+if (!D.settings.custPrices) { buildCustPrices(); persist(); }
 
 /* ---------- Google Sheets backup ---------- */
 function parseSyncInput(rawUrl, rawKey){
@@ -302,7 +332,8 @@ function viewEntry(){
   const d = fromIso(S.date);
   const rows = sortOrders(byCust(D.orders.filter(o => o.date === S.date)));
   const total = rows.reduce((s,o) => s + o.qty*o.price, 0);
-  const prods = products();
+  const prods = products(), c = curCustomer(), {fav, rest} = prodsFor(c);
+  const tile = x => `<button class="prod" data-act="pick" data-i="${x.i}"><b>${esc(x.p.name)}</b><span>${money(priceFor(c, x.p))} đ/kg${hasOwnPrice(c, x.p) ? '' : ' · giá chung'}</span></button>`;
   let h = `<div class="top"><button class="back" data-act="unpick">‹ Đổi khách</button><span class="syncslot">${syncChip()}</span></div>
   <div class="shop" style="font-size:30px;margin-bottom:12px">${esc(curCustomer())}</div>
   <div class="datebar">
@@ -312,9 +343,12 @@ function viewEntry(){
       <input type="date" id="pickdate" value="${S.date}" aria-label="Chọn ngày"></label>
     <button class="arrow" data-act="day" data-v="1" aria-label="Ngày sau">›</button>
   </div>
-  <h2>Bấm vào món để nhập</h2>`;
-  if (!prods.length) h += `<div class="list"><div class="empty">Chưa có món nào. Vào <b>Cài đặt</b> để thêm món.</div></div>`;
-  else h += `<div class="grid">${prods.map((p,i) => `<button class="prod" data-act="pick" data-i="${i}"><b>${esc(p.name)}</b><span>${money(p.price)} đ/kg</span></button>`).join('')}</div>`;
+  `;
+  if (!prods.length) h += `<h2>Bấm vào món để nhập</h2><div class="list"><div class="empty">Chưa có món nào. Vào <b>Cài đặt</b> để thêm món.</div></div>`;
+  else {
+    if (fav.length) h += `<h2>Món khách hay mua</h2><div class="grid">${fav.map(tile).join('')}</div>`;
+    if (rest.length) h += `<h2>${fav.length ? 'Món khác' : 'Bấm vào món để nhập'}</h2><div class="grid">${rest.map(tile).join('')}</div>`;
+  }
 
   h += `<h2>Đã nhập ngày ${dmy(S.date)}</h2><div class="list">`;
   if (!rows.length) h += `<div class="empty">Chưa có món nào trong ngày này.</div>`;
@@ -369,7 +403,7 @@ function viewBook(){
 function viewSettings(){
   const prods = products(), cs = D.settings.customers || [];
   let h = header('Cài đặt') + `<h2>Bảng giá</h2>
-  <p class="hint" style="margin:-4px 2px 10px">Bấm vào giá để đổi. Giá mới chỉ áp dụng cho các lần nhập sau.</p><div class="list">`;
+  <p class="hint" style="margin:-4px 2px 10px">Đây là <b>giá chung</b>, dùng cho khách chưa mua món đó. Khách đã mua thì app tự nhớ giá lần nhập gần nhất của khách đó (xem ở nút <b>Giá riêng</b> trong phần Khách hàng).</p><div class="list">`;
   if (!prods.length) h += `<div class="empty">Chưa có món nào.</div>`;
   prods.forEach((p,i) => {
     if (S.confirmId === 'p'+i) h += `<div class="row confirm"><div class="name">Bỏ món “${esc(p.name)}” khỏi danh sách?</div><div class="btns"><button class="btn danger" data-act="delprod" data-i="${i}">Bỏ món</button><button class="btn ghost" data-act="nodel">Không</button></div></div>`;
@@ -381,7 +415,7 @@ function viewSettings(){
   if (!cs.length) h += `<div class="empty">Chưa có khách.</div>`;
   cs.forEach((c,i) => {
     if (S.confirmId === 'c'+i) h += `<div class="row confirm"><div class="name">Bỏ khách “${esc(c)}”? Đơn cũ vẫn giữ.</div><div class="btns"><button class="btn danger" data-act="delcust" data-i="${i}">Bỏ</button><button class="btn ghost" data-act="nodel">Không</button></div></div>`;
-    else h += `<div class="set-row"><span class="nm">${esc(c)}</span><span class="r">${cs.length>1?`<button class="x" data-act="askcust" data-i="${i}" aria-label="Bỏ khách ${esc(c)}">✕</button>`:''}</span></div>`;
+    else h += `<div class="set-row"><span class="nm">${esc(c)}</span><span class="r"><button class="pricebtn" data-act="custprices" data-i="${i}">Giá riêng</button>${cs.length>1?`<button class="x" data-act="askcust" data-i="${i}" aria-label="Bỏ khách ${esc(c)}">✕</button>`:''}</span></div>`;
   });
   h += `</div><form class="addform" data-form="cust"><input class="inp" id="newcust" placeholder="Tên khách mới" autocomplete="off"><button class="btn pri">Thêm</button></form>`;
 
@@ -464,7 +498,7 @@ function openEntry(prod, existing){
     title: existing ? existing.item : prod.name,
     fields: [
       {key:'qty', label:'Số ký', unit:'kg', val: existing ? toField(existing.qty, true) : '', dec:true},
-      {key:'price', label:'Đơn giá', unit:'đ', val: toField(existing ? existing.price : prod.price, false), dec:false},
+      {key:'price', label:'Đơn giá', unit:'đ', val: toField(existing ? existing.price : priceFor(curCustomer(), prod), false), dec:false},
     ],
     fresh: [false, true],
     onDelete: existing ? () => { closeLayer(); S.confirmId = existing.id; render(); } : null,
@@ -474,6 +508,8 @@ function openEntry(prod, existing){
       const item = existing ? existing.item : prod.name;
       const o = { id: existing ? existing.id : newId(), date:S.date, customer:curCustomer(), item, qty:Math.round(v.qty*100)/100, price:Math.round(v.price), at: existing ? existing.at : Date.now() };
       D.orders = D.orders.filter(x => x.id !== o.id); D.orders.push(o); queueUp(o);
+      // nhớ giá cho khách này, trừ khi đang sửa một ngày cũ hơn lần mua gần nhất
+      if (!D.orders.some(x => custOf(x) === o.customer && x.item === item && x.date > o.date)) setCustPrice(o.customer, item, o.price);
       if (!persist()) return false;
       toast(`Đã lưu: ${item} ${kg(o.qty)} kg = ${money(o.qty*o.price)} đ`);
       render(); flush(); return true;
@@ -664,6 +700,20 @@ function zaloSheet(){
       <button class="btn ghost wide" data-act="close">Đóng</button>
     </div></div></div>`;
 }
+function custPriceSheet(c){
+  const {fav, rest} = prodsFor(c);
+  const rows = fav.concat(rest).map(x => {
+    const own = hasOwnPrice(c, x.p);
+    return `<div class="set-row"><span class="nm">${esc(x.p.name)}${own ? '' : '<br><small style="color:var(--muted);font-weight:600;font-size:14px">giá chung</small>'}</span><span class="r">
+      <button class="pricebtn" data-act="cpset" data-i="${x.i}">${money(priceFor(c, x.p))} đ</button>
+      ${own ? `<button class="x" data-act="cpclear" data-i="${x.i}" aria-label="Bỏ giá riêng ${esc(x.p.name)}">✕</button>` : ''}</span></div>`;
+  }).join('');
+  layer.innerHTML = `<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" data-c="${esc(c)}">
+    <h3>Giá riêng · ${esc(c)}</h3>
+    <p class="hint" style="margin:0 0 10px">Bấm vào giá để đổi giá cho riêng khách này. Bấm ✕ để quay về giá chung.</p>
+    <div class="list">${rows || '<div class="empty">Chưa có món nào.</div>'}</div>
+    <button class="btn ghost wide" data-act="close" style="margin-top:12px">Đóng</button></div></div>`;
+}
 function showText(txt){
   layer.innerHTML = `<div class="scrim" data-act="scrim"><div class="sheet"><h3>Chọn hết rồi sao chép</h3>
     <textarea id="copytxt" readonly class="inp" style="height:50vh;font-size:15px">${esc(txt)}</textarea>
@@ -680,6 +730,7 @@ function applyRestore(orders, settings){
     D.settings.products = Object.entries(last).map(([name, price]) => ({name, price}));
   }
   if (!(D.settings.customers || []).length) D.settings.customers = [...new Set(orders.map(o => o.customer).filter(Boolean))];
+  if (!settings || !settings.custPrices) buildCustPrices();
   D.queue = {up:{}, del:[]};
   persist(); render();
   toast(`Đã khôi phục ${orders.length} dòng.`);
@@ -704,7 +755,20 @@ document.addEventListener('click', async e => {
   if (act === 'close') { closeLayer(); return; }
   if (act === 'field') { P.active = +el.dataset.i; updatePad(); return; }
   if (act === 'paddel') { P.onDelete(); return; }
-  if (act === 'padsave') { const v = {}; P.fields.forEach(f => v[f.key] = num(f.val)); if (P.onSave(v) !== false) closeLayer(); return; }
+  if (act === 'padsave') { const v = {}; P.fields.forEach(f => v[f.key] = num(f.val)); const after = P.after; if (P.onSave(v) !== false) { closeLayer(); if (after) after(); } return; }
+  if (act === 'custprices') { custPriceSheet(D.settings.customers[+el.dataset.i]); return; }
+  if (act === 'cpset') {
+    const c = layer.querySelector('.sheet').dataset.c, p = products()[+el.dataset.i];
+    openPad({ title:'Giá '+p.name+' – '+c, fields:[{key:'price', label:'Giá mỗi ký', unit:'đ', val:String(priceFor(c, p)), dec:false}], fresh:[true],
+      after: () => custPriceSheet(c),
+      onSave: v => { if (!(v.price>0)) { toast('Hãy nhập giá.', true); return false; }
+        setCustPrice(c, p.name, Math.round(v.price)); persist(); toast(`${c} · ${p.name}: ${money(v.price)} đ/kg`); return true; } });
+    return;
+  }
+  if (act === 'cpclear') {
+    const c = layer.querySelector('.sheet').dataset.c, p = products()[+el.dataset.i];
+    setCustPrice(c, p.name, 0); persist(); custPriceSheet(c); toast(`${c} · ${p.name}: dùng giá chung`); return;
+  }
   if (act === 'day') { S.date = addDays(S.date, +el.dataset.v); S.confirmId = null; render(); return; }
   if (act === 'month') { S.bookMonth = addMonth(S.bookMonth, +el.dataset.v); render(); return; }
   if (act === 'pickcust') { S.customer = el.dataset.v; S.picked = true; S.date = iso(new Date()); S.confirmId = null; try { localStorage.setItem(KEY+'-cust', S.customer); } catch(_){} render(); window.scrollTo(0,0); return; }
